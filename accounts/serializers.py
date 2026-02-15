@@ -1,6 +1,6 @@
 from typing import Any
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
@@ -40,6 +40,38 @@ class RegisterSerializer(serializers.ModelSerializer):  # type: ignore[misc]
         token = Token.objects.get(user=instance)
         data["token"] = token.key
         return data  # type: ignore[no-any-return]
+
+
+class LoginSerializer(serializers.Serializer):  # type: ignore[misc]
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    token = serializers.CharField(read_only=True)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        email = attrs.get("email")
+        password = attrs.get("password")
+
+        user = authenticate(email=email, password=password)
+        if not user:
+            raise serializers.ValidationError("Invalid email or password.")
+
+        attrs["user"] = user
+        return attrs
+
+    def create(self, validated_data: dict[str, Any]) -> Any:
+        user = validated_data["user"]
+        token, _ = Token.objects.get_or_create(user=user)
+        return token
+
+    def to_representation(self, instance: Any) -> dict[str, Any]:
+        user = instance.user
+        return {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "token": instance.key,
+        }
 
 
 # accounts/serializers.py
