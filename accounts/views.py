@@ -20,6 +20,14 @@ class MessageResponseSerializer(serializers.Serializer):  # type: ignore[misc]
     message = serializers.CharField()
 
 
+class ErrorResponseSerializer(serializers.Serializer):  # type: ignore[misc]
+    detail = serializers.CharField(required=False)
+    field_errors = serializers.DictField(
+        child=serializers.ListField(child=serializers.CharField()),
+        required=False,
+    )
+
+
 class RegisterView(APIView):  # type: ignore[misc]
     permission_classes = [AllowAny]
 
@@ -27,7 +35,7 @@ class RegisterView(APIView):  # type: ignore[misc]
         request=RegisterSerializer,
         responses={
             201: RegisterSerializer,
-            400: serializers.ValidationError,
+            400: ErrorResponseSerializer,
         },
         description="Register a new user account.",
     )
@@ -46,7 +54,7 @@ class LoginView(APIView):  # type: ignore[misc]
         request=LoginSerializer,
         responses={
             200: LoginSerializer,
-            400: serializers.ValidationError,
+            400: ErrorResponseSerializer,
         },
         description="Authenticate user and return auth token.",
     )
@@ -65,7 +73,7 @@ class ChangePasswordView(APIView):  # type: ignore[misc]
         request=ChangePasswordSerializer,
         responses={
             200: MessageResponseSerializer,
-            400: serializers.ValidationError,
+            400: ErrorResponseSerializer,
         },
         description="Change the authenticated user's password.",
     )
@@ -100,7 +108,7 @@ class ProfileView(APIView):  # type: ignore[misc]
         request=ProfileSerializer,
         responses={
             200: ProfileSerializer,
-            400: serializers.ValidationError,
+            400: ErrorResponseSerializer,
         },
         description="Update the authenticated user's profile (full update).",
     )
@@ -115,7 +123,7 @@ class ProfileView(APIView):  # type: ignore[misc]
         request=ProfileSerializer,
         responses={
             200: ProfileSerializer,
-            400: serializers.ValidationError,
+            400: ErrorResponseSerializer,
         },
         description="Partially update the authenticated user's profile.",
     )
@@ -134,7 +142,7 @@ class DeleteAccountView(APIView):  # type: ignore[misc]
         request=DeleteAccountSerializer,
         responses={
             200: MessageResponseSerializer,
-            400: serializers.ValidationError,
+            400: ErrorResponseSerializer,
         },
         description="Delete the authenticated user's account.",
     )
