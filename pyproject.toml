@@ -1,7 +1,7 @@
 [project]
-name = "personal-space"
+name = "toposphere"
 version = "0.1.0"
-description = "Personal Space - A REST API for personal note-taking"
+description = "Toposphere - A REST API for personal note-taking"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
