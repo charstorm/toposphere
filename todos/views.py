@@ -1,6 +1,6 @@
-from datetime import datetime
 from typing import Any
 
+from django.utils import timezone
 from rest_framework import generics, permissions
 from rest_framework.exceptions import NotFound
 
@@ -62,7 +62,7 @@ class TodoItemDetailView(generics.RetrieveUpdateDestroyAPIView):  # type: ignore
         if "is_completed" in self.request.data:
             is_completed = self.request.data["is_completed"]
             if is_completed and not serializer.instance.is_completed:
-                serializer.save(completed_at=datetime.now())
+                serializer.save(completed_at=timezone.now())
             elif not is_completed and serializer.instance.is_completed:
                 serializer.save(completed_at=None)
             else:

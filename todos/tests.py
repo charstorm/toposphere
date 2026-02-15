@@ -1,7 +1,7 @@
-from datetime import datetime
 from typing import Any
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
@@ -43,7 +43,7 @@ class TodoTests(APITestCase):  # type: ignore[misc]
             is_completed=is_completed,
         )
         if is_completed:
-            item.completed_at = datetime.now()
+            item.completed_at = timezone.now()
             item.save()
         return item
 
