@@ -1,6 +1,6 @@
 # Toposphere
 
-Personal note-taking API with email-based authentication.
+Personal productivity API with note-taking and todo list management. Features email-based authentication.
 
 ## Prerequisites
 
@@ -74,7 +74,41 @@ curl -X POST http://localhost:8000/api/notes/ \
   }'
 ```
 
-### 3. List Your Notes
+### 3. Create a Todo List
+
+```bash
+curl -X POST http://localhost:8000/api/todos/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Token YOUR_TOKEN_HERE" \
+  -d '{
+    "title": "My Tasks",
+    "description": "Things to do"
+  }'
+```
+
+### 4. Add Items to Todo List
+
+```bash
+curl -X POST http://localhost:8000/api/todos/<list_id>/items/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Token YOUR_TOKEN_HERE" \
+  -d '{
+    "title": "Buy groceries"
+  }'
+```
+
+### 5. Mark Item as Complete
+
+```bash
+curl -X PATCH http://localhost:8000/api/todos/items/<item_id>/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Token YOUR_TOKEN_HERE" \
+  -d '{
+    "is_completed": true
+  }'
+```
+
+### 6. List Your Notes
 
 ```bash
 curl -X GET http://localhost:8000/api/notes/ \
@@ -108,7 +142,26 @@ curl -X GET "http://localhost:8000/api/notes/?search=first" \
 | PATCH | `/api/notes/<id>/` | Partial update |
 | DELETE | `/api/notes/<id>/` | Delete a note |
 
-**Note:** All notes endpoints require authentication via `Authorization: Token <token>` header.
+**Note:** All notes and todos endpoints require authentication via `Authorization: Token <token>` header.
+
+### Todos
+
+Todo items are organized into lists. Each user can have multiple lists, and each list can contain multiple items.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/todos/` | List all todo lists |
+| POST | `/api/todos/` | Create a new list |
+| GET | `/api/todos/<id>/` | Retrieve a specific list |
+| PUT | `/api/todos/<id>/` | Update a list (full) |
+| PATCH | `/api/todos/<id>/` | Partial update |
+| DELETE | `/api/todos/<id>/` | Delete a list |
+| GET | `/api/todos/<list_id>/items/` | List all items in a list |
+| POST | `/api/todos/<list_id>/items/` | Create a new item in a list |
+| GET | `/api/todos/items/<id>/` | Retrieve a specific item |
+| PUT | `/api/todos/items/<id>/` | Update an item (full) |
+| PATCH | `/api/todos/items/<id>/` | Partial update (use for marking complete) |
+| DELETE | `/api/todos/items/<id>/` | Delete an item |
 
 ## Running Tests
 
@@ -147,7 +200,9 @@ Passwords must have:
 toposphere/
 ├── accounts/          # User authentication app
 ├── notes/             # Notes CRUD app
+├── todos/             # Todo lists and items app
 ├── test/scripts/      # Shell test scripts
+├── test/scenarios/    # Scenario-based integration tests
 ├── manage.py          # Django management commands
 ├── pyproject.toml     # Dependencies and tool config
 └── check_all.sh       # Code quality script
