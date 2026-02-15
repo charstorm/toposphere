@@ -1,0 +1,39 @@
+[project]
+name = "personal-space"
+version = "0.1.0"
+description = "Personal Space - A REST API for personal note-taking"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "django>=5.2",
+    "djangorestframework>=3.16.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "mypy",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # Pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "W",  # pycodestyle warnings
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
