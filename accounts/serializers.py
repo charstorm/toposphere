@@ -31,9 +31,7 @@ class RegisterSerializer(serializers.ModelSerializer):  # type: ignore[misc]
 
     def create(self, validated_data: dict[str, Any]) -> Any:
         password = validated_data.pop("password")
-        user = User.objects.create_user(**validated_data)
-        user.set_password(password)
-        user.save()
+        user = User.objects.create_user(**validated_data, password=password)
         Token.objects.create(user=user)
         return user
 
