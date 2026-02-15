@@ -74,4 +74,39 @@ class LoginSerializer(serializers.Serializer):  # type: ignore[misc]
         }
 
 
+class ChangePasswordSerializer(serializers.Serializer):  # type: ignore[misc]
+    old_password = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True)
+
+    def validate_new_password(self, value: str) -> str:
+        validate_password(value)
+        return value
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        user = self.context["request"].user
+        old_password = attrs.get("old_password")
+
+        if not user.check_password(old_password):
+            raise serializers.ValidationError({"old_password": "Current password is incorrect."})
+
+        return attrs
+
+
+class ProfileSerializer(serializers.ModelSerializer):  # type: ignore[misc]
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name", "date_joined"]
+        read_only_fields = ["id", "email", "date_joined"]
+
+
+class DeleteAccountSerializer(serializers.Serializer):  # type: ignore[misc]
+    password = serializers.CharField(write_only=True, required=True)
+
+    def validate_password(self, value: str) -> str:
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Password is incorrect.")
+        return value
+
+
 # accounts/serializers.py
