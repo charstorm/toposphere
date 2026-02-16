@@ -3,17 +3,26 @@ from typing import Any
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
-from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
 
+def get_tokens_for_user(user: Any) -> dict[str, str]:
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+    }
+
+
 class RegisterSerializer(serializers.ModelSerializer):  # type: ignore[misc]
-    token = serializers.CharField(read_only=True)
+    access = serializers.CharField(read_only=True)
+    refresh = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "first_name", "last_name", "token"]
+        fields = ["id", "email", "password", "first_name", "last_name", "access", "refresh"]
         extra_kwargs = {
             "password": {"write_only": True},
             "first_name": {"required": False},
@@ -32,20 +41,21 @@ class RegisterSerializer(serializers.ModelSerializer):  # type: ignore[misc]
     def create(self, validated_data: dict[str, Any]) -> Any:
         password = validated_data.pop("password")
         user = User.objects.create_user(**validated_data, password=password)
-        Token.objects.create(user=user)
         return user
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
         data = super().to_representation(instance)
-        token = Token.objects.get(user=instance)
-        data["token"] = token.key
+        tokens = get_tokens_for_user(instance)
+        data["access"] = tokens["access"]
+        data["refresh"] = tokens["refresh"]
         return data  # type: ignore[no-any-return]
 
 
 class LoginSerializer(serializers.Serializer):  # type: ignore[misc]
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    token = serializers.CharField(read_only=True)
+    access = serializers.CharField(read_only=True)
+    refresh = serializers.CharField(read_only=True)
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         email = attrs.get("email")
@@ -60,17 +70,19 @@ class LoginSerializer(serializers.Serializer):  # type: ignore[misc]
 
     def create(self, validated_data: dict[str, Any]) -> Any:
         user = validated_data["user"]
-        token, _ = Token.objects.get_or_create(user=user)
-        return token
+        tokens = get_tokens_for_user(user)
+        return {"user": user, "tokens": tokens}
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
-        user = instance.user
+        user = instance["user"]
+        tokens = instance["tokens"]
         return {
             "id": user.id,
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,
-            "token": instance.key,
+            "access": tokens["access"],
+            "refresh": tokens["refresh"],
         }
 
 

@@ -5,12 +5,23 @@ These tests simulate complete user workflows through the todos API
 to ensure all features work together correctly.
 """
 
+from typing import Any
+
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
 from todos.models import TodoItem, TodoList
+
+
+def get_tokens_for_user(user: Any) -> dict[str, str]:
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+    }
 
 
 class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
@@ -48,7 +59,7 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
             f"{self.base_url}/auth/register/", bob_register_data, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        bob_token = response.data["token"]
+        bob_access_token = response.data["access"]
         bob_id = response.data["id"]
         print(f"✓ Registered Bob (ID: {bob_id})")
 
@@ -63,7 +74,7 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
             f"{self.base_url}/auth/register/", alice_register_data, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        alice_token = response.data["token"]
+        alice_access_token = response.data["access"]
         alice_id = response.data["id"]
         print(f"✓ Registered Alice (ID: {alice_id})")
 
@@ -77,7 +88,7 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
         # PHASE 2: Bob Creates Todo Lists
         # ============================================================================
         print("\n=== Phase 2: Bob Creates Todo Lists ===")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {bob_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {bob_access_token}")
 
         # Create "Work Projects" list
         list1_data = {
@@ -197,7 +208,7 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
         # PHASE 5: Alice Creates Her Own Todo Lists
         # ============================================================================
         print("\n=== Phase 5: Alice Creates Todo Lists ===")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {alice_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {alice_access_token}")
 
         # Alice creates a personal goals list
         alice_list_data = {
@@ -230,7 +241,7 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
         print("\n=== Phase 6: Data Isolation Verification ===")
 
         # Bob lists his todo lists
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {bob_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {bob_access_token}")
         response = self.client.get(f"{self.base_url}/todos/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         bob_list_count = len(response.data["results"])
@@ -242,7 +253,7 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
         print(f"✓ Bob sees {bob_list_count} lists: {bob_list_titles}")
 
         # Alice lists her todo lists
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {alice_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {alice_access_token}")
         response = self.client.get(f"{self.base_url}/todos/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         alice_list_count = len(response.data["results"])
@@ -252,13 +263,13 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
         print(f"✓ Alice sees {alice_list_count} list(s): {alice_list_titles}")
 
         # Bob tries to access Alice's list (should fail)
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {bob_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {bob_access_token}")
         response = self.client.get(f"{self.base_url}/todos/{alice_goals_list_id}/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         print("✓ Bob cannot access Alice's list (404)")
 
         # Alice tries to access Bob's list (should fail)
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {alice_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {alice_access_token}")
         response = self.client.get(f"{self.base_url}/todos/{bob_work_list_id}/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         print("✓ Alice cannot access Bob's list (404)")
@@ -267,7 +278,7 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
         # PHASE 7: Bob Updates Lists and Items
         # ============================================================================
         print("\n=== Phase 7: Bob Updates Lists and Items ===")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {bob_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {bob_access_token}")
 
         # Update work list description
         update_data = {
@@ -388,7 +399,7 @@ class TodoWorkflowsTest(TestCase):  # type: ignore[misc]
         print(f"✓ Final state: Alice has 1 list with {total_alice_items} items")
 
         # Verify isolation: Alice still can't see Bob's lists
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {alice_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {alice_access_token}")
         response = self.client.get(f"{self.base_url}/todos/")
         self.assertEqual(len(response.data["results"]), 1)
         print("✓ Alice's view unchanged (isolation maintained)")

@@ -62,72 +62,114 @@ curl -X POST http://localhost:8000/api/auth/register/ \
 Response:
 ```json
 {
-  "token": "abc123def456...",
-  "user": {
-    "id": 1,
-    "email": "user@example.com"
-  }
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "id": 1,
+  "email": "user@example.com"
 }
 ```
 
-### 2. Create a Note
+**Note:** The API uses JWT (JSON Web Tokens) for authentication. The response includes both an `access` token (valid for 30 minutes) and a `refresh` token (valid for 7 days). Use the refresh token to obtain a new access token when it expires.
+
+### 2. Login
+
+```bash
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123"
+  }'
+```
+
+Response:
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "id": 1,
+  "email": "user@example.com"
+}
+```
+
+### 3. Refresh Access Token
+
+When your access token expires (after 30 minutes), use the refresh token to get a new one:
+
+```bash
+curl -X POST http://localhost:8000/api/auth/refresh/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh": "YOUR_REFRESH_TOKEN_HERE"
+  }'
+```
+
+Response:
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+}
+```
+
+### 4. Create a Note
 
 ```bash
 curl -X POST http://localhost:8000/api/notes/ \
   -H "Content-Type: application/json" \
-  -H "Authorization: Token YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE" \
   -d '{
     "title": "My First Note",
     "content": "This is the content of my note."
   }'
 ```
 
-### 3. Create a Todo List
+### 4. Create a Todo List
 
 ```bash
 curl -X POST http://localhost:8000/api/todos/ \
   -H "Content-Type: application/json" \
-  -H "Authorization: Token YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE" \
   -d '{
     "title": "My Tasks",
     "description": "Things to do"
   }'
 ```
 
-### 4. Add Items to Todo List
+### 5. Add Items to Todo List
 
 ```bash
 curl -X POST http://localhost:8000/api/todos/<list_id>/items/ \
   -H "Content-Type: application/json" \
-  -H "Authorization: Token YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE" \
   -d '{
     "title": "Buy groceries"
   }'
 ```
 
-### 5. Mark Item as Complete
+### 6. Mark Item as Complete
 
 ```bash
 curl -X PATCH http://localhost:8000/api/todos/items/<item_id>/ \
   -H "Content-Type: application/json" \
-  -H "Authorization: Token YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE" \
   -d '{
     "is_completed": true
   }'
 ```
 
-### 6. List Your Notes
+### 7. List Your Notes
 
 ```bash
 curl -X GET http://localhost:8000/api/notes/ \
-  -H "Authorization: Token YOUR_TOKEN_HERE"
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE"
 ```
 
-### 4. Search Notes
+### 8. Search Notes
 
 ```bash
 curl -X GET "http://localhost:8000/api/notes/?search=first" \
-  -H "Authorization: Token YOUR_TOKEN_HERE"
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE"
 ```
 
 ## API Endpoints
@@ -137,7 +179,8 @@ curl -X GET "http://localhost:8000/api/notes/?search=first" \
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | POST | `/api/auth/register/` | Register new user | No |
-| POST | `/api/auth/login/` | Login and get token | No |
+| POST | `/api/auth/login/` | Login and get JWT tokens | No |
+| POST | `/api/auth/refresh/` | Refresh access token using refresh token | No |
 
 ### Notes
 
@@ -150,7 +193,7 @@ curl -X GET "http://localhost:8000/api/notes/?search=first" \
 | PATCH | `/api/notes/<id>/` | Partial update |
 | DELETE | `/api/notes/<id>/` | Delete a note |
 
-**Note:** All notes and todos endpoints require authentication via `Authorization: Token <token>` header.
+**Note:** All notes and todos endpoints require authentication via `Authorization: Bearer <access_token>` header.
 
 ### Todos
 

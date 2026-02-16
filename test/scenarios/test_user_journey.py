@@ -5,12 +5,23 @@ These tests simulate complete user journeys through the API
 to ensure all features work together correctly.
 """
 
+from typing import Any
+
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
 from notes.models import Note
+
+
+def get_tokens_for_user(user: Any) -> dict[str, str]:
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+    }
 
 
 class CompleteUserJourneyTest(TestCase):  # type: ignore[misc]
@@ -43,10 +54,10 @@ class CompleteUserJourneyTest(TestCase):  # type: ignore[misc]
         }
         response = self.client.post(f"{self.base_url}/auth/register/", register_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn("token", response.data)
+        self.assertIn("access", response.data)
         self.assertIn("id", response.data)
         user_id = response.data["id"]
-        auth_token = response.data["token"]
+        auth_token = response.data["access"]
         print(f"✓ Registered user: {self.user_email} (ID: {user_id})")
 
         # Verify user exists in database
@@ -65,12 +76,12 @@ class CompleteUserJourneyTest(TestCase):  # type: ignore[misc]
         }
         response = self.client.post(f"{self.base_url}/auth/login/", login_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("token", response.data)
-        auth_token = response.data["token"]  # Update token
+        self.assertIn("access", response.data)
+        auth_token = response.data["access"]  # Update token
         print("✓ Logged in successfully, received token")
 
         # Set authentication for subsequent requests
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {auth_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {auth_token}")
 
         # ============================================================================
         # STEP 3: Create Multiple Notes
@@ -250,12 +261,12 @@ class CompleteUserJourneyTest(TestCase):  # type: ignore[misc]
         }
         response = self.client.post(f"{self.base_url}/auth/login/", new_login_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("token", response.data)
-        new_token = response.data["token"]
+        self.assertIn("access", response.data)
+        new_token = response.data["access"]
         print("✓ New password accepted on login")
 
         # Update auth token
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {new_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {new_token}")
 
         # ============================================================================
         # STEP 8: Delete a Note
@@ -327,7 +338,7 @@ class CompleteUserJourneyTest(TestCase):  # type: ignore[misc]
         print("✓ Login rejected for deleted account")
 
         # Verify token no longer works
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {new_token}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {new_token}")
         response = self.client.get(f"{self.base_url}/notes/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         print("✓ Old token rejected for deleted account")

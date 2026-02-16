@@ -2,26 +2,34 @@ from typing import Any
 
 from django.contrib.auth import get_user_model
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from notes.models import Note
 
 User = get_user_model()
 
 
+def get_tokens_for_user(user: Any) -> dict[str, str]:
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+    }
+
+
 class NoteTests(APITestCase):  # type: ignore[misc]
     def setUp(self) -> None:
         self.user = User.objects.create_user(email="user@example.com", password="TestPass123")
-        self.token = Token.objects.create(user=self.user)
+        self.tokens = get_tokens_for_user(self.user)
         self.other_user = User.objects.create_user(
             email="other@example.com", password="TestPass123"
         )
-        self.other_token = Token.objects.create(user=self.other_user)
+        self.other_tokens = get_tokens_for_user(self.other_user)
         self.list_url = "/api/notes/"
 
-    def authenticate(self, token: Token) -> None:
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+    def authenticate(self, tokens: dict[str, str]) -> None:
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
 
     def create_note(self, user: Any, title: str = "Test", content: str = "Content") -> Any:
         return Note.objects.create(user=user, title=title, content=content)
@@ -29,7 +37,7 @@ class NoteTests(APITestCase):  # type: ignore[misc]
 
 class NoteCreateTests(NoteTests):
     def test_create_note_success(self) -> None:
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         data = {"title": "My Note", "content": "Note content here"}
         response = self.client.post(self.list_url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -51,7 +59,7 @@ class NoteListTests(NoteTests):
         self.create_note(self.user, "Note 1", "Content 1")
         self.create_note(self.user, "Note 2", "Content 2")
         self.create_note(self.other_user, "Other Note", "Other Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 2)
@@ -63,7 +71,7 @@ class NoteListTests(NoteTests):
     def test_list_notes_ordering(self) -> None:
         note1 = self.create_note(self.user, "First", "Content")
         note2 = self.create_note(self.user, "Second", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["results"][0]["id"], note2.id)
@@ -74,7 +82,7 @@ class NoteSearchTests(NoteTests):
     def test_search_by_title(self) -> None:
         self.create_note(self.user, "Python Guide", "Content")
         self.create_note(self.user, "Java Tutorial", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.get(f"{self.list_url}?search=python")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
@@ -83,7 +91,7 @@ class NoteSearchTests(NoteTests):
     def test_search_by_content(self) -> None:
         self.create_note(self.user, "Title", "Learn Python basics")
         self.create_note(self.user, "Title", "Learn Java basics")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.get(f"{self.list_url}?search=python")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
@@ -92,7 +100,7 @@ class NoteSearchTests(NoteTests):
     def test_search_isolation(self) -> None:
         self.create_note(self.user, "User Note", "Content")
         self.create_note(self.other_user, "Other Note", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.get(f"{self.list_url}?search=note")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
@@ -101,7 +109,7 @@ class NoteSearchTests(NoteTests):
 class NoteDetailTests(NoteTests):
     def test_retrieve_note_success(self) -> None:
         note = self.create_note(self.user, "My Note", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.get(f"{self.list_url}{note.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["title"], note.title)
@@ -109,7 +117,7 @@ class NoteDetailTests(NoteTests):
 
     def test_retrieve_other_user_note(self) -> None:
         note = self.create_note(self.other_user, "Other Note", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.get(f"{self.list_url}{note.id}/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -122,7 +130,7 @@ class NoteDetailTests(NoteTests):
 class NoteUpdateTests(NoteTests):
     def test_update_note_success(self) -> None:
         note = self.create_note(self.user, "Old Title", "Old Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         data = {"title": "New Title", "content": "New Content"}
         response = self.client.put(f"{self.list_url}{note.id}/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -132,14 +140,14 @@ class NoteUpdateTests(NoteTests):
 
     def test_update_other_user_note(self) -> None:
         note = self.create_note(self.other_user, "Other Title", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         data = {"title": "New Title", "content": "New Content"}
         response = self.client.put(f"{self.list_url}{note.id}/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_partial_update_success(self) -> None:
         note = self.create_note(self.user, "Title", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         data = {"title": "New Title"}
         response = self.client.patch(f"{self.list_url}{note.id}/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -151,14 +159,14 @@ class NoteUpdateTests(NoteTests):
 class NoteDeleteTests(NoteTests):
     def test_delete_note_success(self) -> None:
         note = self.create_note(self.user, "Note", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.delete(f"{self.list_url}{note.id}/")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Note.objects.count(), 0)
 
     def test_delete_other_user_note(self) -> None:
         note = self.create_note(self.other_user, "Note", "Content")
-        self.authenticate(self.token)
+        self.authenticate(self.tokens)
         response = self.client.delete(f"{self.list_url}{note.id}/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(Note.objects.count(), 1)
